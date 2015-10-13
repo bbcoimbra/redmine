@@ -172,8 +172,10 @@ class MailHandler < ActionMailer::Base
       receive_issue_reply(m[1].to_i)
     elsif m = subject.match(MESSAGE_REPLY_SUBJECT_RE)
       receive_message_reply(m[1].to_i)
+    elsif m = IssueMessageId.where(message_id: email.in_reply_to).first.try(:issue_id)
+      receive_message_reply(m)
     else
-      dispatch_to_default
+      dispatch_to_default(email.message_id)
     end
   rescue ActiveRecord::RecordInvalid => e
     # TODO: send a email to the user
@@ -187,12 +189,12 @@ class MailHandler < ActionMailer::Base
     false
   end
 
-  def dispatch_to_default
-    receive_issue
+  def dispatch_to_default(email_message_id)
+    receive_issue(email_message_id)
   end
 
   # Creates a new issue
-  def receive_issue
+  def receive_issue(email_message_id)
     project = target_project
     # check permission
     unless handler_options[:no_permission_check]
@@ -214,6 +216,7 @@ class MailHandler < ActionMailer::Base
     add_watchers(issue)
     issue.save!
     add_attachments(issue)
+    remember_message_id(issue, email_message_id)
     logger.info "MailHandler: issue ##{issue.id} created by #{user}" if logger
     issue
   end
@@ -492,6 +495,10 @@ class MailHandler < ActionMailer::Base
     end
 
     user
+  end
+
+  def remember_message_id(issue, email_message_id)
+    IssueMessageId.new(issue_id: issue.id, message_id: email_message_id).save
   end
 
   # Creates a User for the +email+ sender
