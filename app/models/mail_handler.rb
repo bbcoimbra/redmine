@@ -173,7 +173,7 @@ class MailHandler < ActionMailer::Base
     elsif m = subject.match(MESSAGE_REPLY_SUBJECT_RE)
       receive_message_reply(m[1].to_i)
     elsif m = IssueMessageId.where(message_id: email.in_reply_to).first.try(:issue_id)
-      receive_message_reply(m)
+      receive_message_reply(m, nil, email.message_id)
     else
       dispatch_to_default(email.message_id)
     end
@@ -222,7 +222,7 @@ class MailHandler < ActionMailer::Base
   end
 
   # Adds a note to an existing issue
-  def receive_issue_reply(issue_id, from_journal=nil)
+  def receive_issue_reply(issue_id, from_journal=nil, email_message_id=nil)
     issue = Issue.find_by_id(issue_id)
     return unless issue
     # check permission
@@ -246,6 +246,7 @@ class MailHandler < ActionMailer::Base
     journal.notes = cleaned_up_text_body
     add_attachments(issue)
     issue.save!
+    remember_message_id(issue, email_message_id) unless email_message_id.nil?
     if logger
       logger.info "MailHandler: issue ##{issue.id} updated by #{user}"
     end
