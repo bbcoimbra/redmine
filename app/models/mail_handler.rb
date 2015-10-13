@@ -173,7 +173,7 @@ class MailHandler < ActionMailer::Base
     elsif m = subject.match(MESSAGE_REPLY_SUBJECT_RE)
       receive_message_reply(m[1].to_i)
     elsif m = IssueMessageId.where(message_id: email.in_reply_to).first.try(:issue_id)
-      receive_message_reply(m, nil, email.message_id)
+      receive_issue_reply(m, nil, email.message_id)
     else
       dispatch_to_default(email.message_id)
     end
